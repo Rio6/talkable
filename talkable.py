@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import os, sys, math
-import ffmpeg
+import ffmpeg, audioop
+from struct import iter_unpack
 from operator import itemgetter
-from statistics import mean
 
-BLEN = 128
+BLEN = 10 * 1024
 PIX_FMT = 'rgb24'
 IMG_EXTS = ['png', 'jpg', 'jpeg', 'gif']
 
@@ -56,7 +56,7 @@ for path in sorted(path for path in os.listdir(img_dir) if path.split('.')[-1].l
 
 proc_in = (ffmpeg
     .input(in_file, re=None, **in_opt)
-    .output('pipe:', format='s8')
+    .output('pipe:', format='s16le')
     .global_args('-nostdin')
     .run_async(pipe_stdout=True, pipe_stderr=not verbose))
 
@@ -70,11 +70,8 @@ try:
     while True:
         buff = proc_in.stdout.read(BLEN)
         if len(buff) == 0: break
-
-        volume = mean(abs(n) for n in buff)
-        volume = min(volume, 256)
-        print(volume)
-        proc_out.stdin.write(images[math.floor(volume / 256 * len(images))])
+        volume = audioop.rms(buff, 2)
+        proc_out.stdin.write(images[math.floor(volume / 8192 * len(images))])
 
 except (KeyboardInterrupt, BrokenPipeError):
     pass
