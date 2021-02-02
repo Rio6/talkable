@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os, sys, math
 import ffmpeg, audioop
-from struct import iter_unpack
 from operator import itemgetter
 
 BLEN = 8 * 1024
