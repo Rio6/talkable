@@ -4,7 +4,7 @@ import ffmpeg, audioop
 from struct import iter_unpack
 from operator import itemgetter
 
-BLEN = 10 * 1024
+BLEN = 8 * 1024
 PIX_FMT = 'rgb24'
 IMG_EXTS = ['png', 'jpg', 'jpeg', 'gif']
 
@@ -23,7 +23,7 @@ images = []
 width, height = (-1, -1)
 in_file, out_file = (None, None)
 in_opt, out_opt = ({}, {})
-shift = 0
+scale = 0
 
 sys.argv.pop(0)
 img_dir = sys.argv.pop(0)
@@ -31,8 +31,8 @@ while len(sys.argv) > 0:
     arg = sys.argv.pop(0)
     if arg == '-v':
         verbose = True
-    elif arg == '-shift':
-        shift = int(sys.argv.pop(0))
+    elif arg == '-scale':
+        scale = int(sys.argv.pop(0))
     elif len(arg) > 1 and arg.startswith('-'):
         if in_file == None:
             in_opt[arg.strip('-')] = sys.argv.pop(0)
@@ -61,7 +61,7 @@ proc_in = (ffmpeg
     .run_async(pipe_stdout=True, pipe_stderr=not verbose))
 
 proc_out = (ffmpeg
-    .input('pipe:', format='rawvideo', pix_fmt=PIX_FMT, video_size=(width, height))
+    .input('pipe:', re=None, format='rawvideo', pix_fmt=PIX_FMT, video_size=(width, height))
     .output(out_file, **out_opt)
     .overwrite_output()
     .run_async(pipe_stdin=True, pipe_stderr=not verbose))
@@ -70,7 +70,7 @@ try:
     while True:
         buff = proc_in.stdout.read(BLEN)
         if len(buff) == 0: break
-        volume = audioop.rms(buff, 2)
+        volume = min(audioop.rms(buff, 2) * scale, 8191)
         proc_out.stdin.write(images[math.floor(volume / 8192 * len(images))])
 
 except (KeyboardInterrupt, BrokenPipeError):
